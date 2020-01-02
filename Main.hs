@@ -50,7 +50,7 @@ commandNames :: [String]
 commandNames = ["help", "ping", "source", "pronouns"]
 
 pronounRoles :: [T.Text]
-pronounRoles = ["they/them", "he/him", "she/her", "any/pronouns"]
+pronounRoles = ["they/them", "he/him", "she/her", "he/it",  "any/pronouns"]
 
 main :: IO ()
 main = do
