@@ -1,9 +1,8 @@
 #!/usr/bin/env stack
 {- stack script --resolver lts-14.19
      --package discord-haskell
-     --package text       
-     --package deepseq 
-     --package bytestring
+     --package text
+     --package deepseq
      --package emoji
 -}
 
@@ -18,8 +17,10 @@
 module Main where
 
 import Control.DeepSeq              (NFData)
-import Control.Monad                (void)
+import Control.Monad                (forM_, void)
 import Data.Char                    (isSpace)
+import Data.Either                  (fromRight)
+import Data.Function                ((&))
 import Data.List                    (isPrefixOf)
 import Discord
 import Discord.Types
@@ -27,10 +28,9 @@ import GHC.Generics                 (Generic)
 import System.Environment           (getEnvironment)
 import Text.ParserCombinators.ReadP
 
-import qualified Data.ByteString.Char8 as BS
-import qualified Data.Text             as T
-import qualified Data.Text.IO          as T
-import qualified Discord.Requests      as R
+import qualified Data.Text        as T
+import qualified Data.Text.IO     as T
+import qualified Discord.Requests as R
 
 data Command = Command
   { commandName :: T.Text
@@ -47,7 +47,10 @@ botPrefix :: String
 botPrefix = "+"
 
 commandNames :: [String]
-commandNames = ["ping", "source"]
+commandNames = ["help", "ping", "source", "pronouns"]
+
+pronounRoles :: [T.Text]
+pronounRoles = ["they/them", "he/him", "she/her", "any/pronouns"]
 
 main :: IO ()
 main = do
@@ -65,7 +68,7 @@ addPrefix = ("Bot " <>)
 
 handler :: DiscordHandle -> Event -> IO ()
 handler discord event = case event of
-  Ready _ _ _ _ _ ->
+  Ready {} ->
     sendCommand discord $ UpdateStatus $ UpdateStatusOpts
       { updateStatusOptsSince = Nothing
       , updateStatusOptsGame  = Just h_meActivity
@@ -96,9 +99,9 @@ parseCommand = listToEither . readP_to_S commandParser . T.unpack . messageText
 commandParser :: ReadP Command
 commandParser = do
   string botPrefix
-  name <- choice $ map (string $) commandNames
+  name <- choice $ map string commandNames
   skipSpaces
-  args <- (many anyChar) `sepBy` (satisfy isSpace)
+  args <- many anyChar `sepBy` satisfy isSpace
   pure $ Command
     { commandName = T.pack name
     , commandArgs = map T.pack args
@@ -107,16 +110,40 @@ commandParser = do
 runCommand :: TaskEnvironment -> IO (Either RestCallErrorCode ())
 runCommand TaskEnvironment {..} =
   case commandName teCommand of
+    "help"   -> do
+      send $ R.CreateMessage origin "Here's the commands I know!"
+      send $ R.CreateMessage origin "ping - Confirm whether I'm active."
+      send $ R.CreateMessage origin "source - Link to my source code!"
+      send $ R.CreateMessage origin "pronouns ... - Update your pronouns list!"
     "ping"   ->
       send $ R.CreateMessage origin "pong!"
-    "source" -> do
-      send $ R.TriggerTypingIndicator origin
-      src <- BS.readFile "Main.hs"
-      send $ R.CreateMessage origin "Run this file as a Stack script!"
-      send $ R.CreateMessageUploadFile
-        origin
-        "Main.hs"
-        src
+    "source" ->
+      send $ R.CreateMessage origin "Find my source at https://github.com/monad/h-mebot"
+    "pronouns" ->
+      case messageGuild teMessage of
+        Nothing -> send $ R.CreateMessage origin "Please do this in a server instead."
+        Just guildId -> do
+          guildRoles <- fromRight [] <$> restCall teHandle (R.GetGuildRoles guildId)
+          -- a zip of role name -> role id
+          let roles = zip (map roleName guildRoles) (map roleID guildRoles)
+          -- filter the command arguments to only existing, whitelisted role names
+          let validRoleArgs = map T.toLower (commandArgs teCommand)
+                                & filter (`elem` map fst roles)
+                                & filter (`elem` pronounRoles)
+          let authorId = userId $ messageAuthor teMessage
+
+          forM_ pronounRoles $ \role ->
+            case lookup role roles of
+              Just roleId -> restCall teHandle $
+                R.RemoveGuildMemberRole guildId authorId roleId
+              Nothing -> pure $ Right ()
+
+          forM_ validRoleArgs $ \role ->
+            case lookup role roles of
+              Just roleId -> restCall teHandle $
+                R.AddGuildMemberRole guildId authorId roleId
+              Nothing -> pure $ Right ()
+          pure $ Right ()
     _       -> pure $ Right ()
 
   where send r = do
@@ -129,5 +156,5 @@ runCommand TaskEnvironment {..} =
 anyChar :: ReadP Char
 anyChar = satisfy (not . isSpace)
 
-satisfies :: a -> [(a -> Bool)] -> Bool
+satisfies :: a -> [a -> Bool] -> Bool
 satisfies n preds = all (== True) $ map ($ n) preds
