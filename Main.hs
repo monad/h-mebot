@@ -4,6 +4,7 @@
      --package text
      --package deepseq
      --package emoji
+     --package transformers
 -}
 
 -- To build a static binary...
@@ -17,9 +18,11 @@
 module Main where
 
 import Control.DeepSeq              (NFData)
-import Control.Monad                (forM_, void)
+import Control.Monad                (forM_, void, when)
+import Control.Monad.Trans          (lift, liftIO)
+import Control.Monad.Trans.Except   
 import Data.Char                    (isSpace)
-import Data.Either                  (fromRight)
+import Data.Either                  (fromRight, isLeft)
 import Data.Function                ((&))
 import Data.List                    (isPrefixOf)
 import Discord
@@ -75,10 +78,11 @@ handler discord event = case event of
       , updateStatusOptsNewStatus  = UpdateStatusOnline
       , updateStatusOptsAFK = False
       }
-  MessageCreate m ->
-    case parseCommand m of
-      Right cmd -> void $ runCommand $ TaskEnvironment discord m cmd
-      Left  _   -> pure ()
+  MessageCreate m -> do
+    res <- runExceptT $ do
+      cmd <- except $ parseCommand m
+      runCommand $ TaskEnvironment discord m cmd
+    when (isLeft res) $ print res
   _               -> pure ()
 
 h_meActivity :: Activity
@@ -107,7 +111,7 @@ commandParser = do
     , commandArgs = map T.pack args
     }
 
-runCommand :: TaskEnvironment -> IO (Either RestCallErrorCode ())
+runCommand :: TaskEnvironment -> ExceptT String IO ()
 runCommand TaskEnvironment {..} =
   case commandName teCommand of
     "help"   -> do
@@ -123,7 +127,7 @@ runCommand TaskEnvironment {..} =
       case messageGuild teMessage of
         Nothing -> send $ R.CreateMessage origin "Please do this in a server instead."
         Just guildId -> do
-          guildRoles <- fromRight [] <$> restCall teHandle (R.GetGuildRoles guildId)
+          guildRoles <- lift $ fromRight [] <$> restCall teHandle (R.GetGuildRoles guildId)
           -- a zip of role name -> role id
           let roles = zip (map roleName guildRoles) (map roleID guildRoles)
           -- filter the command arguments to only existing, whitelisted role names
@@ -134,24 +138,25 @@ runCommand TaskEnvironment {..} =
 
           forM_ pronounRoles $ \role ->
             case lookup role roles of
-              Just roleId -> restCall teHandle $
+              Just roleId -> liftIO $ restCall teHandle $
                 R.RemoveGuildMemberRole guildId authorId roleId
               Nothing -> pure $ Right ()
 
           forM_ validRoleArgs $ \role ->
             case lookup role roles of
-              Just roleId -> restCall teHandle $
+              Just roleId -> liftIO $ restCall teHandle $
                 R.AddGuildMemberRole guildId authorId roleId
               Nothing -> pure $ Right ()
-          pure $ Right ()
-    _       -> pure $ Right ()
+          pure ()
+    _       -> pure ()
 
-  where send r = do
-          result <- restCall teHandle r
-          case result of
-            Left err -> pure $ Left err
-            Right _  -> pure $ Right ()
-        origin = messageChannel teMessage
+  where
+    send r = except =<< do
+      result <- liftIO $ restCall teHandle r
+      case result of
+        Left err -> pure $ Left $ show err
+        Right _  -> pure $ Right ()
+    origin = messageChannel teMessage
 
 anyChar :: ReadP Char
 anyChar = satisfy (not . isSpace)
