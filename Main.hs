@@ -80,8 +80,9 @@ handler discord event = case event of
       }
   MessageCreate m -> do
     res <- runExceptT $ do
-      cmd <- except $ parseCommand m
-      runCommand $ TaskEnvironment discord m cmd
+      case parseCommand m of
+        Right cmd -> runCommand $ TaskEnvironment discord m cmd
+        Left  _   -> except $ Right ()
     when (isLeft res) $ print res
   _               -> pure ()
 
