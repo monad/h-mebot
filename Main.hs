@@ -6,6 +6,7 @@
 module Main where
 
 import Control.DeepSeq              (NFData)
+import Control.Arrow                ((&&&))
 import Control.Monad                (forM_, void, when)
 import Control.Monad.IO.Class       (liftIO)
 import Control.Monad.Trans.Class    (lift)
@@ -121,7 +122,7 @@ runCommand TaskEnvironment {..} =
         Just guildId -> do
           guildRoles <- lift $ fromRight [] <$> restCall teHandle (R.GetGuildRoles guildId)
           -- a zip of role name -> role id
-          let roles = zip (map roleName guildRoles) (map roleId guildRoles)
+          let roles = map (roleName &&& roleId) guildRoles
           -- filter the command arguments to only existing, whitelisted role names
           let validRoleArgs = map T.toLower (commandArgs teCommand)
                                 & filter (`elem` map fst roles)
