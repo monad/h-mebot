@@ -1,15 +1,3 @@
-#!/usr/bin/env stack
-{- stack script --resolver lts-14.19
-     --package discord-haskell
-     --package text
-     --package deepseq
-     --package emoji
-     --package transformers
--}
-
--- To build a static binary...
--- stack ghc --resolver lts-14.19 --package emoji --package discord-haskell -- -O2 -fPIC -optl-static -static Main.hs
-
 {-# LANGUAGE DeriveAnyClass    #-}
 {-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -19,26 +7,29 @@ module Main where
 
 import Control.DeepSeq              (NFData)
 import Control.Monad                (forM_, void, when)
-import Control.Monad.Trans          (lift, liftIO)
-import Control.Monad.Trans.Except   
+import Control.Monad.IO.Class       (liftIO)
+import Control.Monad.Trans.Class    (lift)
+import Control.Monad.Trans.Except   (ExceptT, except, runExceptT)
 import Data.Char                    (isSpace)
 import Data.Either                  (fromRight, isLeft)
 import Data.Function                ((&))
 import Data.List                    (isPrefixOf)
-import Discord
-import Discord.Types
 import GHC.Generics                 (Generic)
 import System.Environment           (getEnvironment)
-import Text.ParserCombinators.ReadP
+import Text.ParserCombinators.ReadP (ReadP, satisfy, sepBy, many, string, choice, skipSpaces, readP_to_S)
 
-import qualified Data.Text        as T
-import qualified Data.Text.IO     as T
-import qualified Discord.Requests as R
+import Discord
+import Discord.Types
+
+import qualified Data.Text                    as T
+import qualified Data.Text.IO                 as T
+import qualified Discord.Requests             as R
 
 data Command = Command
   { commandName :: T.Text
   , commandArgs :: [T.Text]
-  } deriving (Eq, Show, Generic, NFData)
+  }
+  deriving (Eq, Show, Generic, NFData)
 
 data TaskEnvironment = TaskEnvironment
   { teHandle  :: DiscordHandle
@@ -130,7 +121,7 @@ runCommand TaskEnvironment {..} =
         Just guildId -> do
           guildRoles <- lift $ fromRight [] <$> restCall teHandle (R.GetGuildRoles guildId)
           -- a zip of role name -> role id
-          let roles = zip (map roleName guildRoles) (map roleID guildRoles)
+          let roles = zip (map roleName guildRoles) (map roleId guildRoles)
           -- filter the command arguments to only existing, whitelisted role names
           let validRoleArgs = map T.toLower (commandArgs teCommand)
                                 & filter (`elem` map fst roles)
