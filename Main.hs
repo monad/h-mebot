@@ -5,8 +5,8 @@
 
 module Main where
 
-import Control.DeepSeq              (NFData)
 import Control.Arrow                ((&&&))
+import Control.DeepSeq              (NFData)
 import Control.Monad                (forM_, void, when)
 import Control.Monad.IO.Class       (liftIO)
 import Control.Monad.Trans.Class    (lift)
@@ -15,37 +15,27 @@ import Data.Char                    (isSpace)
 import Data.Either                  (fromRight, isLeft)
 import Data.Function                ((&))
 import Data.List                    (isPrefixOf)
+import Data.Text                    (Text)
 import GHC.Generics                 (Generic)
 import System.Environment           (getEnvironment)
-import Text.ParserCombinators.ReadP (ReadP, satisfy, sepBy, many, string, choice, skipSpaces, readP_to_S)
+import Text.ParserCombinators.ReadP
+    (ReadP, choice, many, readP_to_S, satisfy, sepBy, skipSpaces, string)
 
 import Discord
 import Discord.Types
 
-import qualified Data.Text                    as T
-import qualified Data.Text.IO                 as T
-import qualified Discord.Requests             as R
+import           Homebot.Common   (Command (..), TaskEnvironment (..), send)
+import qualified Homebot.Pronouns as Pronouns
 
-data Command = Command
-  { commandName :: T.Text
-  , commandArgs :: [T.Text]
-  }
-  deriving (Eq, Show, Generic, NFData)
-
-data TaskEnvironment = TaskEnvironment
-  { teHandle  :: DiscordHandle
-  , teMessage :: Message
-  , teCommand :: Command
-  }
+import qualified Data.Text        as T
+import qualified Data.Text.IO     as T
+import qualified Discord.Requests as R
 
 botPrefix :: String
 botPrefix = "+"
 
 commandNames :: [String]
 commandNames = ["help", "ping", "source", "pronouns"]
-
-pronounRoles :: [T.Text]
-pronounRoles = ["they/them", "he/him", "she/her", "he/it",  "any/pronouns"]
 
 main :: IO ()
 main = do
@@ -105,51 +95,20 @@ commandParser = do
     }
 
 runCommand :: TaskEnvironment -> ExceptT String IO ()
-runCommand TaskEnvironment {..} =
-  case commandName teCommand of
-    "help"   -> do
-      send $ R.CreateMessage origin "Here's the commands I know!"
-      send $ R.CreateMessage origin "ping - Confirm whether I'm active."
-      send $ R.CreateMessage origin "source - Link to my source code!"
-      send $ R.CreateMessage origin "pronouns ... - Update your pronouns list!"
-    "ping"   ->
-      send $ R.CreateMessage origin "pong!"
-    "source" ->
-      send $ R.CreateMessage origin "Find my source at https://github.com/monad/h-mebot"
-    "pronouns" ->
-      case messageGuild teMessage of
-        Nothing -> send $ R.CreateMessage origin "Please do this in a server instead."
-        Just guildId -> do
-          guildRoles <- lift $ fromRight [] <$> restCall teHandle (R.GetGuildRoles guildId)
-          -- a zip of role name -> role id
-          let roles = map (roleName &&& roleId) guildRoles
-          -- filter the command arguments to only existing, whitelisted role names
-          let validRoleArgs = map T.toLower (commandArgs teCommand)
-                                & filter (`elem` map fst roles)
-                                & filter (`elem` pronounRoles)
-          let authorId = userId $ messageAuthor teMessage
-
-          forM_ pronounRoles $ \role ->
-            case lookup role roles of
-              Just roleId -> liftIO $ restCall teHandle $
-                R.RemoveGuildMemberRole guildId authorId roleId
-              Nothing -> pure $ Right ()
-
-          forM_ validRoleArgs $ \role ->
-            case lookup role roles of
-              Just roleId -> liftIO $ restCall teHandle $
-                R.AddGuildMemberRole guildId authorId roleId
-              Nothing -> pure $ Right ()
-          pure ()
-    _       -> pure ()
-
-  where
-    send r = except =<< do
-      result <- liftIO $ restCall teHandle r
-      case result of
-        Left err -> pure $ Left $ show err
-        Right _  -> pure $ Right ()
-    origin = messageChannel teMessage
+runCommand e@TaskEnvironment {..} =
+  let origin = messageChannel teMessage in
+    case commandName teCommand of
+      "help"   -> do
+        send e $ R.CreateMessage origin "Here's the commands I know!"
+        send e $ R.CreateMessage origin "ping - Confirm whether I'm active."
+        send e $ R.CreateMessage origin "source - Link to my source code!"
+        send e $ R.CreateMessage origin "pronouns ... - Update your pronouns list!"
+      "ping"   ->
+        send e $ R.CreateMessage origin "pong!"
+      "source" ->
+        send e $ R.CreateMessage origin "Find my source at https://github.com/monad/h-mebot"
+      "pronouns" -> Pronouns.handle e
+      _       -> pure ()
 
 anyChar :: ReadP Char
 anyChar = satisfy (not . isSpace)
