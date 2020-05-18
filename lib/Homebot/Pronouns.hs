@@ -11,12 +11,11 @@ import Control.Monad.Trans.Except
 import Data.Either                (fromRight)
 import Data.Function              ((&))
 import Data.Text                  (Text)
-import Homebot.Common             (TaskEnvironment (..))
 
 import qualified Data.Text        as T
 import qualified Discord.Requests as R
 
-import Homebot.Common (Command (..), send)
+import Homebot.Common (TaskEnvironment (..), Command (..), send)
 
 import Discord
 import Discord.Types
@@ -46,4 +45,3 @@ handle e@TaskEnvironment {..} =
         case lookup role roles of
           Just roleId -> liftIO $ restCall teHandle $ R.AddGuildMemberRole guildId authorId roleId
           Nothing -> pure $ Right ()
-      pure ()

@@ -1,22 +1,12 @@
-{-# LANGUAGE DeriveAnyClass    #-}
-{-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 
 module Main where
 
-import Control.Arrow                ((&&&))
-import Control.DeepSeq              (NFData)
-import Control.Monad                (forM_, void, when)
-import Control.Monad.IO.Class       (liftIO)
-import Control.Monad.Trans.Class    (lift)
+import Control.Monad                (when)
 import Control.Monad.Trans.Except   (ExceptT, except, runExceptT)
 import Data.Char                    (isSpace)
-import Data.Either                  (fromRight, isLeft)
-import Data.Function                ((&))
-import Data.List                    (isPrefixOf)
-import Data.Text                    (Text)
-import GHC.Generics                 (Generic)
+import Data.Either                  (isLeft)
 import System.Environment           (getEnvironment)
 import Text.ParserCombinators.ReadP
     (ReadP, choice, many, readP_to_S, satisfy, sepBy, skipSpaces, string)
@@ -61,7 +51,7 @@ handler discord event = case event of
       , updateStatusOptsAFK = False
       }
   MessageCreate m -> do
-    res <- runExceptT $ do
+    res <- runExceptT $
       case parseCommand m of
         Right cmd -> runCommand $ TaskEnvironment discord m cmd
         Left  _   -> except $ Right ()

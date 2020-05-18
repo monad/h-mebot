@@ -6,6 +6,7 @@ executable:
     - -O2
     - -rtsopts
     - -with-rtsopts=-N
+    - -Wall
   dependencies:
     - discord-haskell >= 1.5.2 && < 1.6
     - emoji >= 0.1.0.2 && < 0.2
