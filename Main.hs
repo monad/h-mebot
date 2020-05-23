@@ -15,6 +15,7 @@ import Discord
 import Discord.Types
 
 import           Homebot.Common   (Command (..), TaskEnvironment (..), send)
+import qualified Homebot.Palette as Palette
 import qualified Homebot.Pronouns as Pronouns
 
 import qualified Data.Text        as T
@@ -98,6 +99,7 @@ runCommand e@TaskEnvironment {..} =
       "source" ->
         send e $ R.CreateMessage origin "Find my source at https://github.com/monad/h-mebot"
       "pronouns" -> Pronouns.handle e
+      "palette" -> Palette.handle e
       _       -> pure ()
 
 anyChar :: ReadP Char
