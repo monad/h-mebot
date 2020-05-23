@@ -24,4 +24,5 @@ rendered = toStrict . encodePng . renderDia Rasterific opts
 
 handle :: TaskEnvironment -> ExceptT String IO ()
 handle e@TaskEnvironment {..} = do
-  send e $ R.CreateMessageEmbed (messageChannel teMessage) "" $ def { createEmbedImage = Just $ CreateEmbedImageUpload $ rendered basicAssSquare }
+  send e $ R.CreateMessageEmbed (messageChannel teMessage) "" $
+    def { createEmbedImage = Just $ CreateEmbedImageUpload $ rendered basicAssSquare }

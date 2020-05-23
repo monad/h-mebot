@@ -94,6 +94,7 @@ runCommand e@TaskEnvironment {..} =
         send e $ R.CreateMessage origin "ping - Confirm whether I'm active."
         send e $ R.CreateMessage origin "source - Link to my source code!"
         send e $ R.CreateMessage origin "pronouns ... - Update your pronouns list!"
+        send e $ R.CreateMessage origin "palette - Generate a random palette"
       "ping"   ->
         send e $ R.CreateMessage origin "pong!"
       "source" ->
