@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 
-module Homebot.Pronouns (pronounRoles, handle) where
+module Homebot.Pronouns (handle, command) where
 
 import Control.Arrow              ((&&&))
 import Control.Monad              (forM_)
@@ -15,13 +15,16 @@ import Data.Text                  (Text)
 import qualified Data.Text        as T
 import qualified Discord.Requests as R
 
-import Homebot.Common (TaskEnvironment (..), Command (..), send)
+import Homebot.Common (Command (..), TaskEnvironment (..), send)
 
 import Discord
 import Discord.Types
 
 pronounRoles :: [Text]
 pronounRoles = ["they/them", "he/him", "she/her", "he/it",  "any/pronouns"]
+
+command :: Text
+command = "pronouns"
 
 handle :: TaskEnvironment -> ExceptT String IO ()
 handle e@TaskEnvironment {..} =

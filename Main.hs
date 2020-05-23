@@ -7,6 +7,8 @@ import Control.Monad                (when)
 import Control.Monad.Trans.Except   (ExceptT, except, runExceptT)
 import Data.Char                    (isSpace)
 import Data.Either                  (isLeft)
+import Data.Function                ((&))
+import Data.Text                    (Text)
 import System.Environment           (getEnvironment)
 import Text.ParserCombinators.ReadP
     (ReadP, choice, many, readP_to_S, satisfy, sepBy, skipSpaces, string)
@@ -15,7 +17,7 @@ import Discord
 import Discord.Types
 
 import           Homebot.Common   (Command (..), TaskEnvironment (..), send)
-import qualified Homebot.Palette as Palette
+import qualified Homebot.Palette  as Palette
 import qualified Homebot.Pronouns as Pronouns
 
 import qualified Data.Text        as T
@@ -25,8 +27,16 @@ import qualified Discord.Requests as R
 botPrefix :: String
 botPrefix = "+"
 
-commandNames :: [String]
-commandNames = ["help", "ping", "source", "pronouns"]
+type Handler = TaskEnvironment -> ExceptT String IO ()
+
+commands :: [(Text, Handler)]
+commands =
+  [ ("help", help)
+  , ("ping", ping)
+  , ("source", source)
+  , (Palette.command, Palette.handle)
+  , (Pronouns.command, Palette.handle)
+  ]
 
 main :: IO ()
 main = do
@@ -77,7 +87,7 @@ parseCommand = listToEither . readP_to_S commandParser . T.unpack . messageText
 commandParser :: ReadP Command
 commandParser = do
   string botPrefix
-  name <- choice $ map string commandNames
+  name <- choice $ map (string . T.unpack . fst) commands
   skipSpaces
   args <- many anyChar `sepBy` satisfy isSpace
   pure $ Command
@@ -85,26 +95,26 @@ commandParser = do
     , commandArgs = map T.pack args
     }
 
+help :: Handler
+help e@TaskEnvironment {..} = do
+  send e $ R.CreateMessage origin "GR33T1NGS HUM4N. 1 4M H3XB0T 0x1."
+  mconcat ["[", T.intercalate ", " (map fst commands), "]"]
+    & R.CreateMessage origin
+    & send e
+  where origin = messageChannel teMessage
+
+ping :: Handler
+ping e@TaskEnvironment {..} =
+  send e $ R.CreateMessage (messageChannel teMessage) "P0NG."
+
+source :: Handler
+source e@TaskEnvironment {..} =
+  send e $ R.CreateMessage (messageChannel teMessage) "https://github.com/monad/h-mebot"
+
 runCommand :: TaskEnvironment -> ExceptT String IO ()
 runCommand e@TaskEnvironment {..} =
-  let origin = messageChannel teMessage in
-    case commandName teCommand of
-      "help"   -> do
-        send e $ R.CreateMessage origin "Here's the commands I know!"
-        send e $ R.CreateMessage origin "ping - Confirm whether I'm active."
-        send e $ R.CreateMessage origin "source - Link to my source code!"
-        send e $ R.CreateMessage origin "pronouns ... - Update your pronouns list!"
-        send e $ R.CreateMessage origin "palette - Generate a random palette"
-      "ping"   ->
-        send e $ R.CreateMessage origin "pong!"
-      "source" ->
-        send e $ R.CreateMessage origin "Find my source at https://github.com/monad/h-mebot"
-      "pronouns" -> Pronouns.handle e
-      "palette" -> Palette.handle e
-      _       -> pure ()
+  lookup (commandName teCommand) commands
+    & maybe (pure ()) ($ e)
 
 anyChar :: ReadP Char
 anyChar = satisfy (not . isSpace)
-
-satisfies :: a -> [a -> Bool] -> Bool
-satisfies n preds = all (== True) $ map ($ n) preds
