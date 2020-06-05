@@ -19,6 +19,7 @@ import Discord.Types
 import           Homebot.Common   (Command (..), TaskEnvironment (..), send)
 import qualified Homebot.Palette  as Palette
 import qualified Homebot.Pronouns as Pronouns
+import qualified Homebot.Decide   as Decide
 
 import qualified Data.Text        as T
 import qualified Data.Text.IO     as T
@@ -35,7 +36,8 @@ commands =
   , ("ping", ping)
   , ("source", source)
   , (Palette.command, Palette.handle)
-  , (Pronouns.command, Palette.handle)
+  , (Pronouns.command, Pronouns.handle)
+  , (Decide.command, Decide.handle)
   ]
 
 main :: IO ()

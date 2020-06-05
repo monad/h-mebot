@@ -1,10 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.31.2.
+-- This file has been generated from package.yaml by hpack version 0.33.0.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 27cfa673d412feef876697f5a8fd289aa260356491d4c2865688122103d7ab0e
+-- hash: 0c90fece32cd6e36198f406f0d3b6c26acafffe29005db7263e6d450e9d33743
 
 name:           h-mebot
 version:        0.0.0
@@ -14,6 +14,7 @@ executable h-mebot
   main-is: Main.hs
   other-modules:
       Homebot.Common
+      Homebot.Decide
       Homebot.Palette
       Homebot.Pronouns
       Paths_h_mebot

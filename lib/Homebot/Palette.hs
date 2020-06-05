@@ -40,7 +40,7 @@ parseText = readMaybe . unpack
 
 handle :: TaskEnvironment -> ExceptT String IO ()
 handle e@TaskEnvironment {..} = do
-  palette <- liftIO (hcat <$> map swatch <$> replicateM (min 16 count) colour)
+  palette <- liftIO (hcat . map swatch <$> replicateM (min 16 count) colour)
   send e $ R.CreateMessageEmbed (messageChannel teMessage) "" $
     def { createEmbedImage = Just $ CreateEmbedImageUpload $ rendered palette }
   where count = fromMaybe 5 $ parseText =<< headMay (commandArgs teCommand)
