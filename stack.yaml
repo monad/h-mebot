@@ -1,5 +1,5 @@
-resolver: lts-14.19
+resolver: lts-16.31
 
 extra-deps:
-  - discord-haskell-1.5.2@sha256:90fbc8f804b1b4d8f69d3b38bd4ca7ab76bbb2b08668ce171a5e3b09b72c5e63,3798
   - emoji-0.1.0.2@sha256:d995572a5c7dcd28f98eb15c6e387a7b3bda1ac2477ab0d9dba8580d5d7b161f,1273
+  - discord-haskell-1.8.1@sha256:86d8777ce02ed404c81d02c7b9b0fd5f870e52c6e3a07d98ce3681a7873f7e0e,3562

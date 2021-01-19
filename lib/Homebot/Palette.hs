@@ -17,6 +17,8 @@ import Homebot.Common             (Command (..), TaskEnvironment (..), send)
 import System.Random              (randomIO)
 import Text.Read                  (readMaybe)
 
+import Discord (DiscordHandler)
+
 import Diagrams.Backend.Rasterific
 import Diagrams.Prelude
 
@@ -46,7 +48,7 @@ rendered Flag    = toStrict . encodePng . renderDia Rasterific RasterificOptions
 parseText :: Text -> Maybe Int
 parseText = readMaybe . unpack
 
-handle :: TaskEnvironment -> ExceptT String IO ()
+handle :: TaskEnvironment -> ExceptT String DiscordHandler ()
 handle e@TaskEnvironment {..} = do
   palette <- liftIO (hcat . map swatch <$> replicateM (min 16 count) colour)
   send e $ R.CreateMessageEmbed (messageChannel teMessage) "" $
@@ -54,7 +56,7 @@ handle e@TaskEnvironment {..} = do
   where count = fromMaybe 5 $ parseText =<< headMay (commandArgs teCommand)
 
 -- "flag mode" the same but vertically stacked rectangles
-flagHandle :: TaskEnvironment -> ExceptT String IO ()
+flagHandle :: TaskEnvironment -> ExceptT String DiscordHandler ()
 flagHandle e@TaskEnvironment {..} = do
   stripes <- liftIO (vcat . map stripe <$> replicateM (min 6 count) colour)
   send e $ R.CreateMessageEmbed (messageChannel teMessage) "" $

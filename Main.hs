@@ -5,6 +5,7 @@ module Main where
 
 import Control.Monad                (when)
 import Control.Monad.Trans.Except   (ExceptT, except, runExceptT)
+import Control.Monad.IO.Class       (liftIO) 
 import Data.Char                    (isSpace)
 import Data.Either                  (isLeft)
 import Data.Function                ((&))
@@ -28,7 +29,7 @@ import qualified Discord.Requests as R
 botPrefix :: String
 botPrefix = "+"
 
-type Handler = TaskEnvironment -> ExceptT String IO ()
+type Handler = TaskEnvironment -> ExceptT String DiscordHandler ()
 
 commands :: [(Text, Handler)]
 commands =
@@ -39,11 +40,8 @@ commands =
   , (Palette.flagCommand, Palette.flagHandle)
   , (Pronouns.command, Pronouns.handle)
   , (Decide.command, Decide.handle)
+  , (Decide.justifyCommand, Decide.justifyHandle)
   ]
-
-secretsToEveryone :: [(Text, Handler)]
-secretsToEveryone =
-  [ (Decide.katCommand, Decide.katHandle) ]
 
 main :: IO ()
 main = do
@@ -59,10 +57,10 @@ main = do
 addPrefix :: String -> String
 addPrefix = ("Bot " <>)
 
-handler :: DiscordHandle -> Event -> IO ()
-handler discord event = case event of
+handler :: Event -> DiscordHandler ()
+handler event = case event of
   Ready {} ->
-    sendCommand discord $ UpdateStatus $ UpdateStatusOpts
+    sendCommand $ UpdateStatus $ UpdateStatusOpts
       { updateStatusOptsSince = Nothing
       , updateStatusOptsGame  = Just h_meActivity
       , updateStatusOptsNewStatus  = UpdateStatusOnline
@@ -71,9 +69,9 @@ handler discord event = case event of
   MessageCreate m -> do
     res <- runExceptT $
       case parseCommand m of
-        Right cmd -> runCommand $ TaskEnvironment discord m cmd
+        Right cmd -> runCommand $ TaskEnvironment m cmd
         Left  _   -> except $ Right ()
-    when (isLeft res) $ print res
+    when (isLeft res) $ liftIO $ print res
   _               -> pure ()
 
 h_meActivity :: Activity
@@ -94,7 +92,7 @@ parseCommand = listToEither . readP_to_S commandParser . T.unpack . messageText
 commandParser :: ReadP Command
 commandParser = do
   string botPrefix
-  name <- choice $ map (string . T.unpack . fst) (commands <> secretsToEveryone)
+  name <- choice $ map (string . T.unpack . fst) commands
   skipSpaces
   args <- many anyChar `sepBy` satisfy isSpace
   pure $ Command
@@ -118,9 +116,9 @@ source :: Handler
 source e@TaskEnvironment {..} =
   send e $ R.CreateMessage (messageChannel teMessage) "https://github.com/monad/h-mebot"
 
-runCommand :: TaskEnvironment -> ExceptT String IO ()
+runCommand :: TaskEnvironment -> ExceptT String DiscordHandler ()
 runCommand e@TaskEnvironment {..} =
-  lookup (commandName teCommand) (commands <> secretsToEveryone)
+  lookup (commandName teCommand) commands
     & maybe (pure ()) ($ e)
 
 anyChar :: ReadP Char

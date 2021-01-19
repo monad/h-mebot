@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 
-module Homebot.Decide (command, parser, handle, katCommand, katHandle) where
+module Homebot.Decide (command, parser, handle, justifyCommand, justifyHandle) where
 
 import Control.Monad.IO.Class       (liftIO, MonadIO)
 import Control.Monad.Trans.Except   (ExceptT)
@@ -14,14 +14,16 @@ import System.Random                (randomRIO)
 import Text.ParserCombinators.ReadP
     (ReadP, char, many1, readP_to_S, satisfy, sepBy)
 
+import Discord (DiscordHandler)
+
 import qualified Data.Text        as T
 import qualified Discord.Requests as R
 
 command :: Text
 command = "decide"
 
-katCommand :: Text
-katCommand = "kat"
+justifyCommand :: Text
+justifyCommand = "justify"
 
 parser :: ReadP [String]
 parser = many1 anyChar `sepBy` char '|'
@@ -46,8 +48,8 @@ justify thing' = (mconcat . ((!!) justifications)) <$> liftIO (randomRIO (0, len
       , ["If you get some ", thing, " done then you'll feel great and I'll also be super proud of you >:3"]
       ]
 
-katHandle :: TaskEnvironment -> ExceptT String IO ()
-katHandle e@TaskEnvironment {..} = do
+justifyHandle :: TaskEnvironment -> ExceptT String DiscordHandler ()
+justifyHandle e@TaskEnvironment {..} = do
   case choices of
     Nothing -> send e $ R.CreateMessage source "Hey! You have to specify some things!"
     Just choices' -> do
@@ -65,7 +67,7 @@ katHandle e@TaskEnvironment {..} = do
       & fst
       & nonempty
 
-handle :: TaskEnvironment -> ExceptT String IO ()
+handle :: TaskEnvironment -> ExceptT String DiscordHandler ()
 handle e@TaskEnvironment {..} = do
   case choices of
     Nothing       -> send e $ R.CreateMessage source "Well that's easy! You should do nothing."

@@ -26,12 +26,12 @@ pronounRoles = ["they/them", "he/him", "she/her", "he/it",  "any/pronouns"]
 command :: Text
 command = "pronouns"
 
-handle :: TaskEnvironment -> ExceptT String IO ()
+handle :: TaskEnvironment -> ExceptT String DiscordHandler ()
 handle e@TaskEnvironment {..} =
   case messageGuild teMessage of
     Nothing -> send e $ R.CreateMessage (messageChannel teMessage) "Please do this in a server instead."
     Just guildId -> do
-      guildRoles <- lift $ fromRight [] <$> restCall teHandle (R.GetGuildRoles guildId)
+      guildRoles <- lift $ fromRight [] <$> restCall (R.GetGuildRoles guildId)
       let roles = map (roleName &&& roleId) guildRoles
       -- filter the command arguments to only existing, whitelisted role names
       let validRoleArgs = map T.toLower (commandArgs teCommand)
@@ -41,10 +41,10 @@ handle e@TaskEnvironment {..} =
 
       forM_ pronounRoles $ \role ->
         case lookup role roles of
-          Just roleId -> liftIO $ restCall teHandle $ R.RemoveGuildMemberRole guildId authorId roleId
+          Just roleId -> lift $ restCall $ R.RemoveGuildMemberRole guildId authorId roleId
           Nothing -> pure $ Right ()
 
       forM_ validRoleArgs $ \role ->
         case lookup role roles of
-          Just roleId -> liftIO $ restCall teHandle $ R.AddGuildMemberRole guildId authorId roleId
+          Just roleId -> lift $ restCall $ R.AddGuildMemberRole guildId authorId roleId
           Nothing -> pure $ Right ()
