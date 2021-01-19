@@ -36,9 +36,14 @@ commands =
   , ("ping", ping)
   , ("source", source)
   , (Palette.command, Palette.handle)
+  , (Palette.flagCommand, Palette.flagHandle)
   , (Pronouns.command, Pronouns.handle)
   , (Decide.command, Decide.handle)
   ]
+
+secretsToEveryone :: [(Text, Handler)]
+secretsToEveryone =
+  [ (Decide.katCommand, Decide.katHandle) ]
 
 main :: IO ()
 main = do
@@ -89,7 +94,7 @@ parseCommand = listToEither . readP_to_S commandParser . T.unpack . messageText
 commandParser :: ReadP Command
 commandParser = do
   string botPrefix
-  name <- choice $ map (string . T.unpack . fst) commands
+  name <- choice $ map (string . T.unpack . fst) (commands <> secretsToEveryone)
   skipSpaces
   args <- many anyChar `sepBy` satisfy isSpace
   pure $ Command
@@ -115,7 +120,7 @@ source e@TaskEnvironment {..} =
 
 runCommand :: TaskEnvironment -> ExceptT String IO ()
 runCommand e@TaskEnvironment {..} =
-  lookup (commandName teCommand) commands
+  lookup (commandName teCommand) (commands <> secretsToEveryone)
     & maybe (pure ()) ($ e)
 
 anyChar :: ReadP Char
